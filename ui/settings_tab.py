@@ -44,55 +44,85 @@ class SettingsTab:
         ttk.Button(settings_inner_frame, text="Save Settings", command=self.app.save_settings).pack(pady=10)
     
     def setup_general_settings(self, parent_frame):
+        # Transcription method selection
+        ttk.Label(parent_frame, text="Transcription Method:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        
+        self.transcription_method_var = tk.StringVar(value=self.app.settings.transcription_method)
+        transcription_methods = ["whisper", "openai"]
+        transcription_method_frame = ttk.Frame(parent_frame)
+        transcription_method_frame.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
+        
+        rb1 = ttk.Radiobutton(transcription_method_frame, text="Local Whisper", 
+                             variable=self.transcription_method_var, value="whisper",
+                             command=lambda: self.app.load_whisper_model(self.whisper_model_var.get(), "whisper"))
+        rb1.pack(side=tk.LEFT, padx=5)
+        
+        rb2 = ttk.Radiobutton(transcription_method_frame, text="OpenAI API", 
+                             variable=self.transcription_method_var, value="openai",
+                             command=self._init_openai_transcription)
+        rb2.pack(side=tk.LEFT, padx=5)
+        
         # Whisper model selection
-        ttk.Label(parent_frame, text="Whisper Model:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        ttk.Label(parent_frame, text="Whisper Model:").grid(row=1, column=0, sticky=tk.W, pady=5)
         
         self.whisper_model_var = tk.StringVar(value=self.app.settings.whisper_model_name)
         whisper_models = ["tiny", "base", "small", "medium", "large"]
         whisper_dropdown = ttk.Combobox(parent_frame, textvariable=self.whisper_model_var, 
                                        values=whisper_models, state="readonly")
-        whisper_dropdown.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
+        whisper_dropdown.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
         whisper_dropdown.bind("<<ComboboxSelected>>", self.app.change_whisper_model)
         
+        # OpenAI transcription model selection
+        ttk.Label(parent_frame, text="OpenAI Transcription Model:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        
+        self.openai_transcription_model_var = tk.StringVar(value=self.app.settings.selected_openai_transcription_model)
+        openai_transcription_models = list(self.app.settings.openai_transcription_models.keys())
+        openai_transcription_dropdown = ttk.Combobox(parent_frame, 
+                                                  textvariable=self.openai_transcription_model_var, 
+                                                  values=openai_transcription_models, 
+                                                  state="readonly")
+        openai_transcription_dropdown.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
+        openai_transcription_dropdown.bind("<<ComboboxSelected>>", self._update_openai_transcription_model)
+        
         # Ollama settings
-        ttk.Label(parent_frame, text="Ollama Server URL:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        ttk.Label(parent_frame, text="Ollama Server URL:").grid(row=3, column=0, sticky=tk.W, pady=5)
         
         self.ollama_url_var = tk.StringVar(value=self.app.settings.ollama_base_url)
         ollama_url_entry = ttk.Entry(parent_frame, textvariable=self.ollama_url_var)
-        ollama_url_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
+        ollama_url_entry.grid(row=3, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
         
         ttk.Button(parent_frame, text="Connect", command=self.app.connect_to_ollama).grid(
-            row=1, column=2, padx=5, pady=5)
+            row=3, column=2, padx=5, pady=5)
         
         # Auto-start Ollama checkbox
         self.auto_start_ollama_var = tk.BooleanVar(value=self.app.settings.auto_start_ollama)
         auto_start_check = ttk.Checkbutton(parent_frame, text="Auto-start Ollama on launch", 
                                           variable=self.auto_start_ollama_var)
-        auto_start_check.grid(row=2, column=0, columnspan=3, sticky=tk.W, pady=5)
+        auto_start_check.grid(row=4, column=0, columnspan=3, sticky=tk.W, pady=5)
         
         # Audio settings
-        ttk.Label(parent_frame, text="Sample Rate:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        ttk.Label(parent_frame, text="Sample Rate:").grid(row=5, column=0, sticky=tk.W, pady=5)
         self.sample_rate_var = tk.IntVar(value=self.app.settings.sample_rate)
         sample_rates = [8000, 16000, 22050, 44100, 48000]
         sample_rate_combo = ttk.Combobox(parent_frame, textvariable=self.sample_rate_var, 
                                        values=sample_rates, state="readonly")
-        sample_rate_combo.grid(row=3, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
+        sample_rate_combo.grid(row=5, column=1, sticky=(tk.W, tk.E), padx=5, pady=5)
         
         # ffmpeg note for audio import
         ffmpeg_note = ttk.Label(parent_frame, text="Note: ffmpeg is required for importing non-WAV audio files.", 
                                font=("", 9, "italic"))
-        ffmpeg_note.grid(row=4, column=0, columnspan=3, sticky=tk.W, pady=5)
+        ffmpeg_note.grid(row=6, column=0, columnspan=3, sticky=tk.W, pady=5)
         
         # Check if ffmpeg is available
         ffmpeg_available = shutil.which('ffmpeg') is not None
         ffmpeg_status = ttk.Label(parent_frame, 
                                 text=f"ffmpeg status: {'Available' if ffmpeg_available else 'Not found - only WAV imports will work'}", 
                                 font=("", 9))
-        ffmpeg_status.grid(row=5, column=0, columnspan=3, sticky=tk.W, pady=5)
+        ffmpeg_status.grid(row=7, column=0, columnspan=3, sticky=tk.W, pady=5)
         
         # Ollama installation status and controls
         ollama_status_frame = ttk.LabelFrame(parent_frame, text="Ollama Status")
-        ollama_status_frame.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E), padx=5, pady=10)
+        ollama_status_frame.grid(row=8, column=0, columnspan=3, sticky=(tk.W, tk.E), padx=5, pady=10)
         
         self.ollama_status_var = tk.StringVar(value="Checking...")
         ttk.Label(ollama_status_frame, textvariable=self.ollama_status_var).pack(pady=5)
@@ -110,11 +140,11 @@ class SettingsTab:
                        command=self.app.download_ollama).pack(side=tk.LEFT, padx=5)
         
         # System prompt for Ollama
-        ttk.Label(parent_frame, text="System Prompt for Ollama:").grid(row=7, column=0, sticky=tk.W, pady=5)
+        ttk.Label(parent_frame, text="System Prompt for Ollama:").grid(row=9, column=0, sticky=tk.W, pady=5)
         
         self.system_prompt_var = tk.StringVar(value=self.app.settings.system_prompt)
         system_prompt_entry = ttk.Entry(parent_frame, textvariable=self.system_prompt_var, width=50)
-        system_prompt_entry.grid(row=7, column=1, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=5)
+        system_prompt_entry.grid(row=9, column=1, columnspan=2, sticky=(tk.W, tk.E), padx=5, pady=5)
         
         # Configure grid
         parent_frame.columnconfigure(1, weight=1)
@@ -261,6 +291,30 @@ class SettingsTab:
             self.openai_model_label.grid_remove()
             self.openai_model_combo.grid_remove()
     
+    def _init_openai_transcription(self):
+        """Initialize OpenAI transcription when option is selected"""
+        # Check if API key is set
+        if hasattr(self, 'api_key_vars') and "OpenAI" in self.api_key_vars:
+            api_key = self.api_key_vars["OpenAI"].get()
+            if not api_key:
+                tk.messagebox.showwarning(
+                    "OpenAI API Key Required", 
+                    "An OpenAI API key is required for transcription. Please enter your API key in the API Settings tab."
+                )
+                # Switch back to Whisper for now
+                self.transcription_method_var.set("whisper")
+                self.app.transcriber.transcription_method = "whisper"
+            else:
+                # API key exists, initialize OpenAI client
+                selected_model = self.openai_transcription_model_var.get()
+                self.app.load_whisper_model(selected_model, "openai")
+    
+    def _update_openai_transcription_model(self, event=None):
+        """Update OpenAI transcription model when changed"""
+        if self.transcription_method_var.get() == "openai":
+            selected_model = self.openai_transcription_model_var.get()
+            self.app.transcriber.openai_model = self.app.settings.openai_transcription_models[selected_model]
+            
     def on_model_select(self, event=None):
         """Handle model selection from listbox"""
         if not self.model_listbox.curselection():

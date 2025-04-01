@@ -25,7 +25,7 @@ class SpeechToLatexApp:
         
         # Initialize components
         self.recorder = AudioRecorder(sample_rate=self.settings.sample_rate)
-        self.transcriber = Transcriber(model_name=self.settings.whisper_model_name)
+        self.transcriber = Transcriber(model_name=self.settings.whisper_model_name, transcription_method=self.settings.transcription_method)
         self.api_handler = APIHandler(self.settings)
         self.ollama_manager = OllamaManager(base_url=self.settings.ollama_base_url)
         
@@ -55,10 +55,10 @@ class SpeechToLatexApp:
         # Load available Ollama models (on a delay to allow server to start)
         self.root.after(3000, self.load_ollama_models)
         
-        # Load whisper model in a separate thread to avoid blocking the GUI
+        # Load transcription model/client in a separate thread to avoid blocking the GUI
         self.root.after(500, lambda: threading.Thread(
             target=self.load_whisper_model, 
-            args=(self.settings.whisper_model_name,), 
+            args=(self.settings.whisper_model_name, self.settings.transcription_method), 
             daemon=True
         ).start())
         
@@ -135,11 +135,17 @@ class SpeechToLatexApp:
             messagebox.showerror("Error", "No recording found to transcribe")
             return
         
-        if self.transcriber.whisper_model is None:
+        # Check if the appropriate model/client is loaded based on transcription method
+        transcription_method = self.settings_tab.transcription_method_var.get() if hasattr(self.settings_tab, 'transcription_method_var') else self.settings.transcription_method
+        
+        if transcription_method == "whisper" and self.transcriber.whisper_model is None:
             messagebox.showerror("Error", "Whisper model not loaded yet")
             return
+        elif transcription_method == "openai" and self.transcriber.openai_client is None:
+            messagebox.showerror("Error", "OpenAI client not initialized")
+            return
         
-        self.status_var.set("Transcribing audio...")
+        self.status_var.set(f"Transcribing audio using {transcription_method.capitalize()}...")
         self.recording_tab.update_progress(0)
         
         # Define callback for transcription updates
@@ -156,15 +162,25 @@ class SpeechToLatexApp:
         # Run transcription asynchronously with callback
         self.transcriber.transcribe_async(transcription_callback)
     
-    def load_whisper_model(self, model_name):
-        success, message = self.transcriber.load_model(model_name)
+    def load_whisper_model(self, model_name, transcription_method=None):
+        # If transcription_method is not provided, get it from UI or settings
+        if transcription_method is None:
+            transcription_method = self.settings_tab.transcription_method_var.get() if hasattr(self.settings_tab, 'transcription_method_var') else self.settings.transcription_method
+        
+        # Get API key if using OpenAI
+        api_key = None
+        if transcription_method == "openai" and hasattr(self.settings_tab, 'api_key_vars') and "OpenAI" in self.settings_tab.api_key_vars:
+            api_key = self.settings_tab.api_key_vars["OpenAI"].get()
+        
+        success, message = self.transcriber.load_model(model_name, transcription_method, api_key)
         self.root.after(0, lambda: self.status_var.set(message))
         if not success:
-            self.root.after(0, lambda: messagebox.showerror("Whisper Error", message))
+            self.root.after(0, lambda: messagebox.showerror("Transcription Error", message))
     
     def change_whisper_model(self, event=None):
         model_name = self.settings_tab.whisper_model_var.get()
-        threading.Thread(target=self.load_whisper_model, args=(model_name,), daemon=True).start()
+        transcription_method = self.settings_tab.transcription_method_var.get()
+        threading.Thread(target=self.load_whisper_model, args=(model_name, transcription_method), daemon=True).start()
     
     # LaTeX Conversion Functions
     def convert_to_latex(self):
@@ -469,6 +485,14 @@ class SpeechToLatexApp:
         self.settings.sample_rate = self.settings_tab.sample_rate_var.get()
         self.settings.system_prompt = self.settings_tab.system_prompt_var.get()
         
+        # Update transcription method
+        if hasattr(self.settings_tab, 'transcription_method_var'):
+            self.settings.transcription_method = self.settings_tab.transcription_method_var.get()
+            
+        # Update OpenAI transcription model
+        if hasattr(self.settings_tab, 'openai_transcription_model_var'):
+            self.settings.selected_openai_transcription_model = self.settings_tab.openai_transcription_model_var.get()
+        
         # Update API settings
         self.settings.selected_provider = self.settings_tab.api_provider_var.get()
         self.settings.selected_prompt_mode = self.selected_prompt_mode.get()
@@ -502,7 +526,9 @@ class SpeechToLatexApp:
             self.settings_tab.sample_rate_var,
             self.settings_tab.api_provider_var,
             self.settings_tab.selected_openai_model,
-            self.settings_tab.api_key_vars
+            self.settings_tab.api_key_vars,
+            self.settings_tab.transcription_method_var if hasattr(self.settings_tab, 'transcription_method_var') else None,
+            self.settings_tab.openai_transcription_model_var if hasattr(self.settings_tab, 'openai_transcription_model_var') else None
         )
         
         self.status_var.set(message)

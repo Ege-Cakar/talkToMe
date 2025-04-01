@@ -17,6 +17,7 @@ class Settings:
         self.sample_rate = 16000
         self.selected_provider = "Ollama (Local)"
         self.selected_prompt_mode = "Direct Transcription"
+        self.transcription_method = "whisper"  # Can be "whisper" or "openai"
         
         # System prompt
         self.system_prompt = """You are an expert academic and scientific assistant specializing in mathematics, physics, and technical content. Your strengths include:
@@ -59,6 +60,13 @@ Always prioritize correctness over completeness - when uncertain about a specifi
             "o1": "o1"
         }
         self.selected_openai_model = "o3-mini"
+        
+        # OpenAI transcription models
+        self.openai_transcription_models = {
+            "GPT-4o Transcribe": "gpt-4o-transcribe",
+            "Whisper-1": "whisper-1"
+        }
+        self.selected_openai_transcription_model = "gpt-4o-transcribe"
         
         # LLM Prompt Modes
         self.mode_prompts = {
@@ -201,6 +209,7 @@ Always prioritize correctness over completeness - when uncertain about a specifi
                 # Load Whisper settings
                 if 'Whisper' in config:
                     self.whisper_model_name = config.get('Whisper', 'model', fallback=self.whisper_model_name)
+                    self.transcription_method = config.get('Whisper', 'transcription_method', fallback=self.transcription_method)
                 
                 # Load Ollama settings
                 if 'Ollama' in config:
@@ -234,12 +243,18 @@ Always prioritize correctness over completeness - when uncertain about a specifi
                     if selected_model in self.openai_models:
                         self.selected_openai_model = selected_model
                     
+                    # Load OpenAI transcription model
+                    selected_transcription_model = config.get('OpenAI', 'transcription_model', fallback="GPT-4o Transcribe")
+                    if selected_transcription_model in self.openai_transcription_models:
+                        self.selected_openai_transcription_model = selected_transcription_model
+                    
             except Exception as e:
                 print(f"Error loading settings: {e}")
     
     def save_settings(self, whisper_model_var, ollama_url_var, auto_start_ollama_var, 
                       ollama_model_var, system_prompt_var, sample_rate_var, 
-                      api_provider_var, selected_openai_model, api_keys):
+                      api_provider_var, selected_openai_model, api_keys,
+                      transcription_method_var=None, selected_openai_transcription_model=None):
         """Save settings to config file"""
         config = configparser.ConfigParser()
         
@@ -247,6 +262,10 @@ Always prioritize correctness over completeness - when uncertain about a specifi
         config['Whisper'] = {
             'model': whisper_model_var.get()
         }
+        
+        # Add transcription method if provided
+        if transcription_method_var:
+            config['Whisper']['transcription_method'] = transcription_method_var.get()
         
         # Ollama settings
         config['Ollama'] = {
@@ -274,6 +293,10 @@ Always prioritize correctness over completeness - when uncertain about a specifi
         if 'OpenAI' not in config:
             config['OpenAI'] = {}
         config['OpenAI']['model'] = selected_openai_model.get()
+        
+        # Add OpenAI transcription model if provided
+        if selected_openai_transcription_model:
+            config['OpenAI']['transcription_model'] = selected_openai_transcription_model.get()
         
         # API keys
         config['APIKeys'] = {}

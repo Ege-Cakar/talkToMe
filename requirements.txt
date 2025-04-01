@@ -1,0 +1,13 @@
+numpy>=2.0.0
+PyAudio>=0.2.14
+openai-whisper>=20240930
+openai>=1.65.4
+tkinter
+pillow
+pydub>=0.25.1
+tqdm>=4.65.0
+torch>=2.0.0
+httpx>=0.27.0
+websockets>=12.0
+pydantic>=2.0.0
+regex>=2024.5.0
